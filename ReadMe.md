@@ -5,7 +5,7 @@ To make sure the model and support files are properly set up, simply type:
 make -f setup.mk
 ```
 > N.B.: You need anaconda to use the existing environment files within which
-> to run the model. By default, python3.8 will be used to run the model.
+> to run the model. By default, python3.10 will be used to run the model.
 > If you would rather install the dependencies locally, you will need python.
 
 Followed by:
