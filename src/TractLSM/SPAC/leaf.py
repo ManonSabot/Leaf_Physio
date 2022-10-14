@@ -210,9 +210,6 @@ def leaf_temperature(p, trans, Tleaf=None, gs=None, inf_gb=False):
 
     """
 
-    # unit conversion
-    TairK = p.Tair + conv.C_2_K  # degK
-
     # get conductances, mol m-2 s-1
     if gs is None:
         gH, gb, __ = conductances(p, Tleaf=Tleaf, inf_gb=inf_gb)
@@ -235,13 +232,8 @@ def leaf_temperature(p, trans, Tleaf=None, gs=None, inf_gb=False):
     # canopy / leaf sensible heat flux
     H = p.Rnet - Lambda * trans  # W m-2
 
-    # simplified Tleaf, eq 14.6 of Campbell & Norman, 1998
-    if np.isclose(abs(p.Tair), 0., rtol=cst.zero, atol=cst.zero):
-        Tleaf = (p.Tair + H / (cst.Cp * gH * TairK / cst.zero +
-                               Lambda * slp * gw / p.Patm))  # degC
-    else:
-        Tleaf = (p.Tair + H / (cst.Cp * gH * TairK / p.Tair +
-                               Lambda * slp * gw / p.Patm))  # degC
+    # Tleaf, deg C, eq 14.6 of Campbell & Norman, 1998
+    Tleaf = p.Tair + H / (cst.Cp * gH + Lambda * slp * gw / p.Patm)
 
     return Tleaf, gb
 
