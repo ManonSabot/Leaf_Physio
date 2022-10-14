@@ -275,7 +275,7 @@ def supply_max(p, photo='Farquhar', case=1, res='low', iter_max=40,
             new_Tleaf = p.Tleaf
 
         except (IndexError, AttributeError, ValueError):  # calc. Tleaf
-            new_Tleaf, __ = leaf_temperature(p, trans, Tleaf=Tleaf,
+            new_Tleaf, __ = leaf_temperature(p, trans, Tleaf=Tleaf, gs=gs,
                                              inf_gb=inf_gb)
 
         # update Cs (Pa)

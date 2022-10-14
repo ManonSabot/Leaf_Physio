@@ -119,7 +119,7 @@ def solve_obs(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
             new_Tleaf = p.Tleaf
 
         except (IndexError, AttributeError, ValueError):  # calc. Tleaf
-            new_Tleaf, __ = leaf_temperature(p, trans, Tleaf=Tleaf,
+            new_Tleaf, __ = leaf_temperature(p, trans, Tleaf=Tleaf, gs=p.gs,
                                              inf_gb=inf_gb)
 
         # update Cs (Pa)

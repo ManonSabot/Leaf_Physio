@@ -42,7 +42,7 @@ pd.options.mode.chained_assignment = None
 
 # ======================================================================
 
-def main(runsim=False):
+def main(runsim=False, models=['Obs', 'Medlyn', 'ProfitMax']):
 
     """
     Main function: either runs the leaf-energy balance equilibriates
@@ -53,6 +53,9 @@ def main(runsim=False):
     ----------
     runsim: bool
         if True, runs the model. Otherwise analyses the model outputs
+
+    models: list
+        the models to run (including obs-driven)
 
     Returns:
     --------
@@ -83,7 +86,7 @@ def main(runsim=False):
     # check whether the output files exist
     if sum([e in os.listdir(ipath.replace('input', 'output'))
             for e in yfiles]) != len(yfiles):
-        run_simulations(ipath, xfiles, yfiles)
+        run_simulations(ipath, xfiles, yfiles, models)
 
     if not runsim:
         analyse_simulations(ipath, xfiles, yfiles)
@@ -91,7 +94,7 @@ def main(runsim=False):
     return
 
 
-def run_simulations(ipath, xfiles, yfiles):
+def run_simulations(ipath, xfiles, yfiles, models):
 
     """
     Calls TractLSM to run the leaf energy-balance and hydraulics
@@ -107,6 +110,9 @@ def run_simulations(ipath, xfiles, yfiles):
 
     yfiles: list
         names under which to save the model output files
+
+    models: list
+        the models to run (including obs-driven)
 
     Returns:
     --------
@@ -132,8 +138,8 @@ def run_simulations(ipath, xfiles, yfiles):
             df['scale2can'] = 1.  # no leaf scaling of any kind
             df.fillna(method='ffill', inplace=True)
 
-            # run model
-            __ = hrun(fname, df, len(df.index), 'Farquhar', models=['Obs'],
+            # run models
+            __ = hrun(fname, df, len(df.index), 'Farquhar', models=models,
                       resolution='high')
 
     return
@@ -493,4 +499,9 @@ if __name__ == "__main__":
                         help='run the model')
     args = parser.parse_args()
 
-    main(runsim=args.runsim)
+    # user input
+    #models = ['Obs', 'Medlyn', 'Tuzet', 'SOX12', 'WUE', 'CMax', 'ProfitMax',
+    #           'CGain', 'ProfitMax2', 'LeastCost', 'CAP', 'MES']
+    models = ['Obs', 'Medlyn', 'ProfitMax']
+
+    main(runsim=args.runsim, models=models)

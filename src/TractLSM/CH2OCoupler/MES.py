@@ -142,7 +142,6 @@ def MES(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
                     break
 
         # optimized where Cis for both photo models are close
-        An = An[idx[0]]
         trans = trans[mask][idx[0]]  # mol.m-2.s-1
         gs = gs[idx[0]]
         Pleaf = P[mask][idx[0]]
@@ -151,14 +150,18 @@ def MES(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
             Tleaf = p.Tleaf
 
         except (IndexError, AttributeError, ValueError):  # calc. Tleaf
-            Tleaf, __ = leaf_temperature(p, trans, inf_gb=inf_gb)
+            Tleaf, __ = leaf_temperature(p, trans, gs=gs, inf_gb=inf_gb)
+
+        # calc. optimal An
+        An, Aj, Ac = calc_photosynthesis(p, trans, Cc[idx[0]], photo=photo,
+                                         Tleaf=Tleaf, inf_gb=inf_gb)
+
+        # rubisco limitation or electron transport-limitation?
+        rublim = rubisco_limit(Aj, Ac)
 
         # infer Ci from Cc
         gamstar = arrhen(p.gamstar25, p.Egamstar, p.Tref + conv.C_2_K, Tleaf)
         Ci = (Cc[idx[0]] - gamstar) / phi[mask][idx[0]] + gamstar
-
-        # rubisco limitation or electron transport-limitation?
-        rublim = rubisco_limit(Aj[idx[0]], Ac[idx[0]])
 
         if ((np.isclose(trans, cst.zero, rtol=cst.zero, atol=cst.zero) and
             (An > 0.)) or (idx[0] == len(P) - 1) or

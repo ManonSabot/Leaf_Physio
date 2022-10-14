@@ -143,18 +143,18 @@ def Cgain_plc(p, photo='Farquhar', res='low', inf_gb=False,
         gs = gs[idx[0]]
         Pleaf = P[mask][idx[0]]
 
-        # calc. optimal An
-        An, Aj, Ac = calc_photosynthesis(p, trans, Ci, photo=photo,
-                                         inf_gb=inf_gb)
-
-        # rubisco- or electron transport-limitation?
-        rublim = rubisco_limit(Aj, Ac)
-
         try:  # is Tleaf one of the input fields?
             Tleaf = p.Tleaf
 
         except (IndexError, AttributeError, ValueError):  # calc. Tleaf
-            Tleaf, __ = leaf_temperature(p, trans, inf_gb=inf_gb)
+            Tleaf, __ = leaf_temperature(p, trans, gs=gs, inf_gb=inf_gb)
+
+        # calc. optimal An
+        An, Aj, Ac = calc_photosynthesis(p, trans, Ci, photo=photo,
+                                         Tleaf=Tleaf, inf_gb=inf_gb)
+
+        # rubisco- or electron transport-limitation?
+        rublim = rubisco_limit(Aj, Ac)
 
         # check validity of the optimization point
         if ((np.isclose(trans, cst.zero, rtol=cst.zero, atol=cst.zero) and

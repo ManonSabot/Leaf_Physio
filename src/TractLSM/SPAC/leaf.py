@@ -141,13 +141,12 @@ def conductances(p, Tleaf=None, gs=None, inf_gb=False):
 
     # boundary layer conductance to water vapour
     if inf_gb:
-        gb = conv.MILI  # 1.e3 mol H2O m-2 s-1, large so disappears
-        gHa = conv.MILI  # 1.e3 mol heat m-2 s-1, large so disappears
+        gb = conv.U * conv.MILI  # 1.e9 mol H2O m-2 s-1, disappears
 
     else:
         try:  # is gb one of the input fields?
             gb = p.gb  # mol H2O m-2 s-1, 1-sided in LICOR
-            gHa = gb * 2. * conv.GbhvGb  # mol heat m-2 s-1, 2-sided
+            gHa = 2. * gb * conv.GbhvGb  # mol heat m-2 s-1, 2-sided
 
         except (IndexError, AttributeError, ValueError):  # calc. gb
             gb = np.maximum(cst.zero, gHa * conv.GbvGbh)
@@ -180,7 +179,7 @@ def conductances(p, Tleaf=None, gs=None, inf_gb=False):
         return gw, gH, gb, gr
 
 
-def leaf_temperature(p, trans, Tleaf=None, inf_gb=False):
+def leaf_temperature(p, trans, Tleaf=None, gs=None, inf_gb=False):
 
     """
     Calculates the leaf temperature for each supply function, i.e. over
@@ -215,7 +214,17 @@ def leaf_temperature(p, trans, Tleaf=None, inf_gb=False):
     TairK = p.Tair + conv.C_2_K  # degK
 
     # get conductances, mol m-2 s-1
-    gH, gb, __ = conductances(p, Tleaf=Tleaf, inf_gb=inf_gb)
+    if gs is None:
+        gH, gb, __ = conductances(p, Tleaf=Tleaf, inf_gb=inf_gb)
+
+        # for initialisation, before we know gs
+        gw = p.Patm * trans / p.VPD
+
+    else:
+        gw, gH, gb, __ = conductances(p, Tleaf=Tleaf, gs=gs, inf_gb=inf_gb)
+
+    if inf_gb and (gs is not None):
+        gw = gs
 
     # latent heat of water vapor
     Lambda = LH_water_vapour(p)  # J mol-1
@@ -226,13 +235,13 @@ def leaf_temperature(p, trans, Tleaf=None, inf_gb=False):
     # canopy / leaf sensible heat flux
     H = p.Rnet - Lambda * trans  # W m-2
 
-    # simplified Tleaf (gb for gw), eq 14.6 of Campbell & Norman, 1998
+    # simplified Tleaf, eq 14.6 of Campbell & Norman, 1998
     if np.isclose(abs(p.Tair), 0., rtol=cst.zero, atol=cst.zero):
         Tleaf = (p.Tair + H / (cst.Cp * gH * TairK / cst.zero +
-                               Lambda * slp * gb / p.Patm))  # degC
+                               Lambda * slp * gw / p.Patm))  # degC
     else:
         Tleaf = (p.Tair + H / (cst.Cp * gH * TairK / p.Tair +
-                               Lambda * slp * gb / p.Patm))  # degC
+                               Lambda * slp * gw / p.Patm))  # degC
 
     return Tleaf, gb
 
