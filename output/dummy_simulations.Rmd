@@ -1,0 +1,932 @@
+---
+title: "dummy_simulations"
+output: html_document
+date: '2022-11-09'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+## Dummy Simulations
+
+Here the tractable LSM is run with five different stomatal behavior models for three hypothetical eight-day scenarios: a heatwave, a drought, and a simultaneous heatwave and drought.
+
+## Data Upload and Organization
+
+We upload the data as follows:
+
+```{r}
+# Output data frame with all simulations
+all_simulations = read.csv(
+  'HW_drought_test/all_site_spp_simulations.csv') %>%
+  rename(treatment = site_spp)
+
+
+# Output data frames for individual simulations
+drought_only = 
+  subset(all_simulations, treatment=='drought_only')[,-1]
+HW_only_constD = 
+  subset(all_simulations, treatment=='HW_only_constD')[,-1]
+HW_only_varD_pwr = 
+  subset(all_simulations, treatment=='HW_only_varD_pwr')[,-1]
+HW_only_varD_RH60 = 
+  subset(all_simulations, treatment=='HW_only_varD_RH60')[,-1]
+HW_and_drought_constD = 
+  subset(all_simulations, treatment=='HW_and_drought_constD')[,-1]
+HW_and_drought_varD_pwr = 
+  subset(all_simulations, treatment=='HW_and_drought_varD_pwr')[,-1]
+HW_and_drought_varD_RH60 = 
+  subset(all_simulations, treatment=='HW_and_drought_varD_RH60')[,-1]
+```
+
+We then reformat the data for ease of plotting.
+
+```{r}
+# Define function to reorganize data frames for plotting
+create_plotting_df = function(df)
+{
+  df_1 = cbind(doy = df$doy, 
+               Tair = df$Tair, 
+               VPD = df$VPD, 
+               Ps = df$Ps,
+               A = stack(df[1:9]),
+               E = stack(df[10:18]),
+               gs = stack(df[19:27]),
+               gb = stack(df[28:36]),
+               Ci = stack(df[38:46]),
+               Tleaf = stack(df[47:55]),               
+               Pleaf = stack(df[56:64]),
+               Rublim = stack(df[66:74]),
+               ref = stack(df[75:77]),
+               gmin.std2. = df$gmin.std2.,
+               k.pmax. = df$k.pmax.
+  )
+  return(df_1)
+}
+
+# Apply function to all data frames
+drought_only = create_plotting_df(drought_only)
+HW_only_constD = create_plotting_df(HW_only_constD)
+HW_only_varD_pwr = create_plotting_df(HW_only_varD_pwr)
+HW_only_varD_RH60 = create_plotting_df(HW_only_varD_RH60)
+HW_and_drought_constD = create_plotting_df(HW_and_drought_constD)
+HW_and_drought_varD_pwr = create_plotting_df(HW_and_drought_varD_pwr)
+HW_and_drought_varD_RH60 = create_plotting_df(HW_and_drought_varD_RH60)
+```
+
+## Plotting
+
+We now plot the results of the simulations. First, we define a general function for plotting time series.
+
+```{r}
+# Define a function to plot time series for a given simulation, response, and environmental variable
+plot_time_series = function(df, # Data frame for specific simulation
+                            yval, # Response variable
+                            yind, # Corresponding index
+                            ref, # Environmental reference variable
+                            coeff, # Scaling coefficient from yval to ref
+                            int, # Scaling intercept from yval to ref
+                            ylab, # y-axis label
+                            reflab, # Environmental variable label
+                            ybreaks # Specify breaks for y-axis
+                            )
+  {
+  p = ggplot(df, 
+             aes(x = doy)) + 
+    geom_point(size = 1.7, position=position_dodge(width=0.5), 
+               aes(y = {{yval}}, color = {{yind}}, shape = {{yind}})) + 
+    geom_line(position=position_dodge(width=0.5), 
+              aes(y = {{yval}}, linetype = {{yind}}, color = {{yind}})) +
+    geom_line(position=position_dodge(width=0.5), aes(y = ({{ref}}-int)/coeff)) +
+    theme_classic() + 
+    scale_x_continuous(name = 'Day of year') + 
+    scale_y_continuous(name = ylab,
+                       breaks = ybreaks,
+                       sec.axis = sec_axis(~. * coeff + int,
+                                           name = reflab)) +
+    scale_shape_manual(values=1:9)
+}
+
+#Same as previous, except without an environmental reference variable
+plot_time_series_noref = function(df, # Data frame for specific simulation
+                            yval, # Response variable
+                            yind, # Corresponding index
+                            ylab, # y-axis label
+                            ybreaks # Specify breaks for y-axis
+                            )
+  {
+  p = ggplot(df, 
+             aes(x = doy)) + 
+    geom_point(size = 1.7, position=position_dodge(width=0.5), 
+               aes(y = {{yval}}, color = {{yind}}, shape = {{yind}})) + 
+    geom_line(position=position_dodge(width=0.5), 
+              aes(y = {{yval}}, linetype = {{yind}}, color = {{yind}})) +
+    theme_classic() + 
+    scale_x_continuous(name = 'Day of year') + 
+    scale_y_continuous(name = ylab,
+                       breaks = ybreaks) +
+    scale_shape_manual(values=1:9)
+}
+
+#Same as previous, except without an environmental reference variable
+plot_time_series_ref = function(df) # Data frame for specific simulation
+  {
+  ggplot(df,aes(x = doy, y = ref.values, color = ref.ind)) + 
+    geom_line() +
+    theme_classic() + 
+    scale_x_continuous(name = 'Day of year') + 
+   facet_wrap(~ref.ind, ncol = 1, scales = "free_y")
+}
+```
+
+### Environmental Variables for Simulations
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_constD_ref = plot_time_series_ref(HW_only_constD)
+HW_varD_ref = plot_time_series_ref(HW_only_varD_RH60)
+
+drought_ref = plot_time_series_ref(drought_only)
+
+HWdr_constD_ref = plot_time_series_ref(HW_and_drought_constD)
+HWdr_varD_ref = plot_time_series_ref(HW_and_drought_varD_RH60)
+
+plot(HW_constD_ref)
+plot(HW_varD_ref)
+plot(drought_ref)
+plot(HWdr_constD_ref)
+plot(HWdr_varD_ref)
+```
+
+### Just k
+
+```{r}
+
+just_k = all_simulations %>%
+  filter(!(treatment %in% c('HW_and_drought_varD_pwr','HW_only_varD_pwr', 'HW_and_drought_constD', 'HW_only_constD'))) %>%
+  select(treatment, doy, k.pmax.)
+
+time_series_k = ggplot(just_k, 
+             aes(x = doy, y = k.pmax., color = treatment)) + 
+    geom_point(size = 1.7, position=position_dodge(width=0.5), 
+               aes( shape = treatment)) + 
+    geom_line(position=position_dodge(width=0.5), 
+              aes(linetype = treatment)) +
+
+    theme_classic() + 
+    scale_x_continuous(name = 'Day of year', breaks = seq(0,14, by=2)) + 
+    scale_y_continuous(name = 'k (mmol m-2 s-1 MPa-1)') +
+  geom_vline(xintercept = 6, color='red', linetype = 'dashed') +
+  geom_hline(yintercept = 0.167, color='red', linetype = 'dashed')
+```
+
+### Heatwave Only
+
+#### Constant VPD
+
+Next we plot a time series of gs for the heatwave only simulation with constant VPD.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_constD_GsvTime = plot_time_series_noref(df = subset(HW_only_constD,
+                                                       gs.ind != 'gs.Treg.'
+                                                 ),
+                 y = gs.values, 
+                 yind = gs.ind, 
+                 ylab = "Stomatal conductance (gs)", 
+                 ybreaks = c(-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1)
+                 )
+
+HW_constD_GsvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = gs.values,
+  yind = gs.ind,
+  ylab = "Stomatal conductance (gs)",
+  ybreaks = c(-0.2,0, 0.2, 0.4, 0.6, 0.8,1)
+  )
+
+plot(HW_constD_GsvTime)
+plot(HW_constD_GsvTime_1)
+```
+
+
+Photosynthesis vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_constD_AvTime = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              A.ind != "A.Treg."),
+  y = A.values, 
+  yind = A.ind, 
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+HW_constD_AvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = A.values,
+  yind = A.ind,
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+plot(HW_constD_AvTime)
+plot(HW_constD_AvTime_1)
+```
+
+Leaf water potential vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_constD_LWPvTime = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              Pleaf.ind != 'Pleaf.Treg.'),
+  y = Pleaf.values, 
+  yind = Pleaf.ind, 
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-6, 0, by=2)
+  )
+
+HW_constD_LWPvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Pleaf.values,
+  yind = Pleaf.ind,
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-6,0, by=2)
+  )
+
+plot(HW_constD_LWPvTime)
+plot(HW_constD_LWPvTime_1)
+```
+
+Transpiration over time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_constD_EvTime = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              E.ind != 'E.Treg.'),
+  y = E.values, 
+  yind = E.ind, 
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,15, by=5)
+  )
+
+HW_constD_EvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = E.values,
+  yind = E.ind,
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,15, by=5)
+  )
+
+plot(HW_constD_EvTime)
+plot(HW_constD_EvTime_1)
+```
+
+We now plot a time series of leaf temperatures. We first plot all days of the simulation, then only days 2-7 (i.e. the peak days of the heatwave).
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_constD_TleafvTime = plot_time_series(
+  df = subset(HW_only_constD, Tleaf.ind != 'Tleaf.Treg.'),
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(30,55,by=5)
+  )
+
+HW_constD_TleafvTime_1 = plot_time_series(
+  df = subset(HW_only_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(-0.1, 0, 0.1, 0.2, 0.3, 0.4)
+  )
+
+HW_constD_TleafvTime_zoom = plot_time_series(
+  df = subset(HW_only_constD, Tleaf.ind != 'Tleaf.Treg.' & doy > 1 & doy < 8),
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(30,55,by=5)
+  )
+
+plot(HW_constD_TleafvTime)
+
+plot(HW_constD_TleafvTime_zoom)
+```
+
+#### Variable VPD, Constant RH
+
+Next we plot a time series of gs for the heatwave only simulation with variable VPD and constant RH.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_varD_GsvTime = plot_time_series_noref(df = HW_only_varD_RH60, 
+                 y = gs.values, 
+                 yind = gs.ind, 
+                 ylab = "Stomatal conductance (gs)", 
+                 ybreaks = c(-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1)
+                 )
+HW_varD_GsvTime_1 = plot_time_series_noref(
+  df = filter(HW_only_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'), 
+  y = gs.values, 
+  yind = gs.ind, 
+  ylab = "Stomatal conductance (gs)", 
+  ybreaks = c(-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1)
+  )
+
+plot(HW_varD_GsvTime)
+plot(HW_varD_GsvTime_1)
+```
+
+Photosynthesis vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_varD_AvTime = plot_time_series_noref(
+  df = subset(HW_only_varD_RH60,
+              A.ind != "A.Treg."),
+  y = A.values, 
+  yind = A.ind, 
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+HW_varD_AvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = A.values,
+  yind = A.ind,
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+plot(HW_varD_AvTime)
+plot(HW_varD_AvTime_1)
+```
+
+Leaf water potential vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_varD_LWPvTime = plot_time_series_noref(
+  df = subset(HW_only_varD_RH60,
+              Pleaf.ind != 'Pleaf.Treg.'),
+  y = Pleaf.values, 
+  yind = Pleaf.ind, 
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10, 0, by=2)
+  )
+
+HW_varD_LWPvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Pleaf.values,
+  yind = Pleaf.ind,
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10,0, by=2)
+  )
+
+plot(HW_varD_LWPvTime)
+plot(HW_varD_LWPvTime_1)
+```
+
+Transpiration over time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_varD_EvTime = plot_time_series_noref(
+  df = subset(HW_only_varD_RH60,
+              E.ind != 'E.Treg.'),
+  y = E.values, 
+  yind = E.ind, 
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,35, by=5)
+  )
+
+HW_varD_EvTime_1 = plot_time_series_noref(
+  df = subset(HW_only_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = E.values,
+  yind = E.ind,
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,10, by=2)
+  )
+
+plot(HW_varD_EvTime)
+plot(HW_varD_EvTime_1)
+```
+
+
+We now plot a time series of leaf temperatures. We first plot all days of the simulation, then only days 2-7 (i.e. the peak days of the heatwave).
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HW_varD_TleafvTime = plot_time_series(
+  df = subset(HW_only_varD_RH60, Tleaf.ind != 'Tleaf.Treg.'), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(30,55, by=5)
+)
+
+HW_varD_TleafvTime_1 = plot_time_series(
+  df = subset(HW_only_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(30,55, by=5))
+
+HW_varD_TleafvTime_zoom = plot_time_series(
+  df = subset(HW_only_varD_RH60, Tleaf.ind != 'Tleaf.Treg.' & doy > 1 & doy < 8),
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(-0.1, 0, 0.1, 0.2, 0.3, 0.4)
+  )
+
+plot(HW_varD_TleafvTime)
+
+plot(HW_varD_TleafvTime_zoom)
+```
+
+### Drought Only
+
+Next we plot a time series of gs for the drought only simulation.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+drought_GsvTime = plot_time_series_noref(df = drought_only, 
+                 y = gs.values, 
+                 yind = gs.ind, 
+                 ylab = "Stomatal conductance (gs)", 
+                 ybreaks = c(0,0.2,0.4,0.6, 0.8,1)
+                 )
+
+drought_GsvTime_1 = plot_time_series_noref(
+  df = filter(drought_only,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'), 
+  y = gs.values, 
+  yind = gs.ind, 
+  ylab = "Stomatal conductance (gs)", 
+  ybreaks = c(-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1)
+  )
+
+plot(drought_GsvTime)
+plot(drought_GsvTime_1)
+```
+
+Photosynthesis vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+drought_AvTime = plot_time_series_noref(
+  df = drought_only,
+  y = A.values, 
+  yind = A.ind, 
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+drought_AvTime_1 = plot_time_series_noref(
+  df = subset(drought_only,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = A.values,
+  yind = A.ind,
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+plot(drought_AvTime)
+plot(drought_AvTime_1)
+```
+
+Leaf water potential vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+drought_LWPvTime = plot_time_series_noref(
+  df = subset(drought_only,
+              ),
+  y = Pleaf.values, 
+  yind = Pleaf.ind, 
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10, -2, by=2)
+  )
+
+drought_LWPvTime_1 = plot_time_series_noref(
+  df = subset(drought_only,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Pleaf.values,
+  yind = Pleaf.ind,
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10,-2, by=2)
+  )
+
+plot(drought_LWPvTime)
+plot(drought_LWPvTime_1)
+```
+
+Transpiration over time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+drought_EvTime = plot_time_series_noref(
+  df = subset(drought_only,
+              E.ind != 'E.Treg.'),
+  y = E.values, 
+  yind = E.ind, 
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,12, by=2)
+  )
+
+drought_EvTime_1 = plot_time_series_noref(
+  df = subset(drought_only,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = E.values,
+  yind = E.ind,
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,12, by=2)
+  )
+
+plot(drought_EvTime)
+plot(drought_EvTime_1)
+```
+
+We now plot a time series of leaf temperatures.
+
+```{r}
+drought_TleafvTime = plot_time_series(
+  df = drought_only, 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair,
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(23,24,25,26,27)
+  )
+
+drought_TleafvTime_1 = plot_time_series(
+  df = subset(drought_only,
+   gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'           ), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair,
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(23,24,25,26,27)
+  )
+
+plot(drought_TleafvTime)
+```
+
+### Heatwave and Drought
+
+#### Constant VPD
+
+Next we plot a time series of gs for the heatwave and drought simulation.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_constD_GsvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              gs.ind != 'gs.Treg.'
+              ), 
+  y = gs.values, 
+  yind = gs.ind, 
+  ylab = "Stomatal conductance (gs)", 
+  ybreaks = seq(-0.2,1, by=0.2)
+  )
+
+HWdrought_constD_GsvTime_1 = plot_time_series_noref(
+  df = filter(HW_and_drought_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'), 
+  y = gs.values, 
+  yind = gs.ind, 
+  ylab = "Stomatal conductance (gs)", 
+  ybreaks = c(-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1)
+  )
+
+plot(HWdrought_constD_GsvTime)
+plot(HWdrought_constD_GsvTime_1)
+```
+
+Photosynthesis vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_constD_AvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              A.ind != 'A.Treg.'),
+  y = A.values, 
+  yind = A.ind, 
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+HWdrought_constD_AvTime_1 = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = A.values,
+  yind = A.ind,
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+plot(HWdrought_constD_AvTime)
+plot(HWdrought_constD_AvTime_1)
+```
+
+Leaf water potential vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_constD_LWPvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              Pleaf.ind != 'Pleaf.Treg.'),
+  y = Pleaf.values, 
+  yind = Pleaf.ind, 
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10, -2, by=2)
+  )
+
+HWdrought_constD_LWPvTime_1 = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Pleaf.values,
+  yind = Pleaf.ind,
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10,-2, by=2)
+  )
+
+plot(HWdrought_constD_LWPvTime)
+plot(HWdrought_constD_LWPvTime_1)
+```
+
+Transpiration over time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_constD_EvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              E.ind != 'E.Treg.'),
+  y = E.values, 
+  yind = E.ind, 
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,14, by=2)
+  )
+
+HWdrought_constD_EvTime_1 = plot_time_series_noref(
+  df = subset(HW_and_drought_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = E.values,
+  yind = E.ind,
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,14, by=2)
+  )
+
+plot(HWdrought_constD_EvTime)
+plot(HWdrought_constD_EvTime_1)
+```
+
+
+We now plot a time series of leaf temperatures.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_constD_TleafvTime = plot_time_series(
+  df = subset(HW_and_drought_constD,Tleaf.ind != 'Tleaf.Treg.'), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(30, 40, 50, 60)
+  )
+
+HWdrought_constD_TleafvTime_1 = plot_time_series(
+  df = subset(HW_and_drought_constD,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+ ),
+ y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(30, 40, 50, 60)
+  )
+
+plot(HWdrought_constD_TleafvTime)
+```
+
+Here we do the same, but only for days 7-12 (i.e. the days of the heatwave).
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_constD_TleafvTime_zoom = plot_time_series(
+  df = subset(HW_and_drought_constD,Tleaf.values<9999 & doy>6 & doy<13), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(40,55, by=5)
+  )
+
+
+
+plot(HWdrought_constD_TleafvTime_zoom)
+
+```
+
+#### Variable VPD, Constant RH
+
+Next we plot a time series of gs for the drought only simulation.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_varD_GsvTime = plot_time_series_noref(df = HW_and_drought_varD_RH60, 
+                 y = gs.values, 
+                 yind = gs.ind, 
+                 ylab = "Stomatal conductance (gs)", 
+                 ybreaks = seq(-0.2,1, by=0.2)
+                 )
+
+HWdrought_varD_GsvTime_1 = plot_time_series_noref(
+  df = filter(HW_and_drought_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'), 
+  y = gs.values, 
+  yind = gs.ind, 
+  ylab = "Stomatal conductance (gs)", 
+  ybreaks = c(-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1)
+  )
+
+plot(HWdrought_varD_GsvTime)
+plot(HWdrought_varD_GsvTime_1)
+
+```
+
+Photosynthesis vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_varD_AvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_varD_RH60,A.ind != 'A.Treg.'
+  ),
+  y = A.values, 
+  yind = A.ind, 
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+HWdrought_varD_AvTime_1 = plot_time_series_noref(
+  df = subset(HW_and_drought_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = A.values,
+  yind = A.ind,
+  ylab = "Photosynthetic rate (umol m-2 s-1)", 
+  ybreaks = seq(0,20, by=5)
+  )
+
+plot(HWdrought_varD_AvTime)
+plot(HWdrought_varD_AvTime_1)
+```
+
+Leaf water potential vs time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_varD_LWPvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_varD_RH60,
+              Pleaf.ind != 'Pleaf.Treg.'),
+  y = Pleaf.values, 
+  yind = Pleaf.ind, 
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10, 0, by=2)
+  )
+
+HWdrought_varD_LWPvTime_1 = plot_time_series_noref(
+  df = subset(HW_and_drought_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Pleaf.values,
+  yind = Pleaf.ind,
+  ylab = "Leaf water potential (MPa)", 
+  ybreaks = seq(-10,-2, by=2)
+  )
+
+plot(HWdrought_varD_LWPvTime)
+plot(HWdrought_varD_LWPvTime_1)
+```
+
+Transpiration over time
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_varD_EvTime = plot_time_series_noref(
+  df = subset(HW_and_drought_varD_RH60,
+              E.ind != 'E.Treg.'),
+  y = E.values, 
+  yind = E.ind, 
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,35, by=5)
+  )
+
+HWdrought_varD_EvTime_1 = plot_time_series_noref(
+  df = subset(HW_and_drought_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = E.values,
+  yind = E.ind,
+  ylab = "Transpiration rate (mmol m-2 s-1)", 
+  ybreaks = seq(0,35, by=5)
+  )
+
+plot(HWdrought_varD_EvTime)
+plot(HWdrought_varD_EvTime_1)
+```
+
+
+
+We now plot a time series of leaf temperatures.
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_varD_TleafvTime = plot_time_series(
+  df = subset(HW_and_drought_varD_RH60,Tleaf.ind != 'Tleaf.Treg.'), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(30, 40, 50, 60)
+  )
+
+HWdrought_varD_TleafvTime_1 = plot_time_series(
+  df = subset(HW_and_drought_varD_RH60,
+              gs.ind == 'gs.std.' | gs.ind == 'gs.std2.' | gs.ind == 'gs.pmax.'
+              ),
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf and air temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = c(30, 40, 50, 60)
+  )
+
+plot(HWdrought_varD_TleafvTime)
+```
+
+Here we do the same, but only for days 7-12 (i.e. the days of the heatwave).
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+HWdrought_varD_TleafvTime_zoom = plot_time_series(
+  df = subset(HW_and_drought_varD_RH60,Tleaf.ind != 'Tleaf.Treg.' & doy>6 & doy<13), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(40,55, by=5)
+  )
+HWdrought_varD_TleafvTime_zoom_1 = plot_time_series(
+  df = subset(HW_and_drought_varD_RH60, Tleaf.ind %in% c('Tleaf.std.', 'Tleaf.std2.', 'Tleaf.pmax.') & doy>6 & doy<13), 
+  y = Tleaf.values, 
+  yind = Tleaf.ind, 
+  ref = Tair, 
+  coeff = 1, 
+  int = 0,
+  ylab = "Leaf temperature (°C)", 
+  reflab = 'Air temperature (°C)', 
+  ybreaks = seq(40,55, by=5)
+  )
+plot(HWdrought_varD_TleafvTime_zoom)
+```
