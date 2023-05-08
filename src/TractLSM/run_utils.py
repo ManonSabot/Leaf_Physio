@@ -102,7 +102,7 @@ def write_csv(fname, df, dic):
 
     """
 
-    # timeseries for wich the optimisation has occured
+    # timeseries for which the optimisation has occurred
     len_series = len(list(list(dic.values())[0].values())[0])
 
     # declare the lists for the column names, units, and data
@@ -129,6 +129,9 @@ def write_csv(fname, df, dic):
             if subkey == 'gb':
                 units += ['[mol m-2 s-1]']
 
+            if subkey == 'gmin':
+                units += ['[mol m-2 s-1]']
+
             if subkey == 'Ci':
                 units += ['[Pa]']
 
@@ -137,6 +140,9 @@ def write_csv(fname, df, dic):
 
             if subkey == 'Pleaf':
                 units += ['[MPa]']
+
+            if subkey == 'k':
+                units += ['[mmol m-2 s-1 MPa-1]']
 
             if subkey == 'Rublim':
                 units += ['[-]']

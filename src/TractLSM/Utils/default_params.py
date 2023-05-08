@@ -151,4 +151,19 @@ class default_params(object):  # default inputs needed to run model
         self.pwp = 0.1027524  # plant wilting point (m3 m-3)
         self.bch = 5.222721  # Clapp and Hornberger index
 
+        # temperature thresholds
+        self.Tp = 32.   # phase transition temperature for gmin (deg C)
+        self.Tcrit = 44.    # critical temperature for Fv/Fm (deg C)
+        self.T50 = 46.  # temperature at 50% loss of Fv/Fm (deg C)
+        self.Topt = 25.     # optimal temperature for [photosynthesis/stomatal conductance?] (deg C)
+
+        # fluorescence
+        self.F0_min = 0
+        self.F0_max = 1
+
+        # minimum conductance
+        self.gmin_20 = 0.001    # minimum conductance at 20 deg C (mol m-2 s-1)
+        self.gmin_Tp = 0.01     # minimum conductance at Tp (mol m-2 s-1)
+        self.gmax = 1   # maximum conductance
+
         return

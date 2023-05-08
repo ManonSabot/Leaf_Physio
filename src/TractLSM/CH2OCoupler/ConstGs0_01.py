@@ -27,7 +27,7 @@ from TractLSM.CH2OCoupler import calc_trans
 
 # ======================================================================
 
-def solve_obs(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
+def solve_const0_01(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
               inf_gb=False):
 
     """
@@ -92,6 +92,9 @@ def solve_obs(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
     # initial state
     Cs = p.CO2  # Pa
 
+    # set value of gs
+    gs = 0.01
+
     try:   # is Tleaf one of the input fields?
         Tleaf = p.Tleaf
 
@@ -107,19 +110,19 @@ def solve_obs(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
     while True:
 
         # calculate trans, gw, gb, mol.m-2.s-1
-        trans, real_zero, gw, gb, __ = calc_trans(p, Tleaf, p.gs,
+        trans, real_zero, gw, gb, __ = calc_trans(p, Tleaf, gs,
                                                   inf_gb=inf_gb)
 
         # calculate An, Ci
         An, Aj, Ac = calc_photosynthesis(p, 0., Cs, photo=photo, Tleaf=Tleaf,
-                                         gsc=conv.U * conv.GcvGw * p.gs)
-        Ci = Cs - p.Patm * conv.FROM_MILI * An / (p.gs * conv.GcvGw)  # Pa
+                                         gsc=conv.U * conv.GcvGw * gs)
+        Ci = Cs - p.Patm * conv.FROM_MILI * An / (gs * conv.GcvGw)  # Pa
 
         try:  # is Tleaf one of the input fields?
             new_Tleaf = p.Tleaf
 
         except (IndexError, AttributeError, ValueError):  # calc. Tleaf
-            new_Tleaf, __ = leaf_temperature(p, trans, Tleaf=Tleaf, gs=p.gs,
+            new_Tleaf, __ = leaf_temperature(p, trans, Tleaf=Tleaf, gs=gs,
                                              inf_gb=inf_gb)
 
         # update Cs (Pa)
@@ -133,7 +136,7 @@ def solve_obs(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
         # check for convergence
         if ((real_zero is None) or (iter >= iter_max) or ((iter >= 1) and
             real_zero and (abs(Tleaf - new_Tleaf) <= threshold_conv) and not
-           np.isclose(p.gs, cst.zero, rtol=cst.zero, atol=cst.zero))):
+           np.isclose(gs, cst.zero, rtol=cst.zero, atol=cst.zero))):
             break
 
         # no convergence, iterate on leaf temperature
@@ -150,10 +153,10 @@ def solve_obs(p, photo='Farquhar', res='low', iter_max=40, threshold_conv=0.1,
         (An > 0.)) or np.isclose(Ci, 0., rtol=cst.zero, atol=cst.zero) or
         (Ci < 0.) or np.isclose(Ci, p.CO2, rtol=cst.zero, atol=cst.zero) or
         (Ci > p.CO2) or (real_zero is None) or (not real_zero) or
-       any(np.isnan([An, Ci, trans, p.gs, new_Tleaf, Pleaf]))):
+       any(np.isnan([An, Ci, trans, gs, new_Tleaf, Pleaf]))):
         An, Ci, trans, gb, new_Tleaf, Pleaf = (9999.,) * 6
 
     elif not np.isclose(trans, cst.zero, rtol=cst.zero, atol=cst.zero):
         trans *= conv.MILI  # mmol.m-2.s-1
 
-    return An, Ci, rublim, trans, p.gs, gb, new_Tleaf, Pleaf
+    return An, Ci, rublim, trans, gs, gb, new_Tleaf, Pleaf

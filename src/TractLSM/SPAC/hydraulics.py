@@ -191,6 +191,19 @@ def transpiration(P, kmax, b, c):
 
     return np.maximum(cst.zero, trans)
 
+def calc_kmax(p):
+    """
+    Calculates the plant-level hydraulic conductivity as a function of air temperature.
+
+    Arguments:
+    ----------
+    p: recarray object or pandas series or class containing the data
+        time step's met data & params
+    """
+
+    Tair_K = p.Tair + conv.C_2_K # convert air temp to Kelvin
+    kmax_new = p.kmax * (Tair_K ** 7. / (25. + conv.C_2_K) ** 7.)
+    return kmax_new
 
 def hydraulics(p, res='low', Kirchhoff=True, kmax=None, Pcrit=None):
 
@@ -263,7 +276,8 @@ def hydraulics(p, res='low', Kirchhoff=True, kmax=None, Pcrit=None):
             trans = transpiration(P, kmax, b, c)  # mol m-2 s-1
 
         else:
-            trans = transpiration(P, p.kmax, b, c)  # mol m-2 s-1
+            kmax = calc_kmax(p)
+            trans = transpiration(P, kmax, b, c)  # mol m-2 s-1
 
         return P, trans
 

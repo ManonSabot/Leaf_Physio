@@ -42,7 +42,7 @@ pd.options.mode.chained_assignment = None
 
 # ======================================================================
 
-def main(runsim=False, models=['Obs', 'Medlyn', 'ProfitMax']):
+def main(runsim=False, models=['GsDriv', 'ProfitMax', 'ProfitMax_wGmin', 'Medlyn', 'Medlyn_wGmin']):
 
     """
     Main function: either runs the leaf-energy balance equilibriates
@@ -67,7 +67,7 @@ def main(runsim=False, models=['Obs', 'Medlyn', 'ProfitMax']):
     base_dir = get_main_dir()  # working paths
 
     # path to input files
-    ipath = os.path.join(os.path.join(base_dir, 'input'), 'observed_gs')
+    ipath = os.path.join(os.path.join(base_dir, 'input'), 'Anne_HW2_obs_gs')
 
     if not os.path.isdir(ipath):  # make dir
         os.makedirs(ipath)
@@ -140,7 +140,7 @@ def run_simulations(ipath, xfiles, yfiles, models):
 
             # run models
             __ = hrun(fname, df, len(df.index), 'Farquhar', models=models,
-                      resolution='high')
+                      resolution='low')
 
     return
 
@@ -502,6 +502,6 @@ if __name__ == "__main__":
     # user input
     #models = ['Obs', 'Medlyn', 'Tuzet', 'SOX12', 'WUE', 'CMax', 'ProfitMax',
     #           'CGain', 'ProfitMax2', 'LeastCost', 'CAP', 'MES']
-    models = ['Obs', 'Medlyn', 'ProfitMax']
+    models = ['GsDriv', 'ProfitMax', 'ProfitMax_wGmin', 'Medlyn', 'Medlyn_wGmin']
 
     main(runsim=args.runsim, models=models)

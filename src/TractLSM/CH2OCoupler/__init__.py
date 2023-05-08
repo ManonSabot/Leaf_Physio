@@ -2,32 +2,58 @@ try:
     from coupler_utils import calc_trans
     from coupler_utils import Ci_sup_dem
     from coupler_utils import A_trans
-    from ObsGs import solve_obs
+    from GsDriv import solve_gs_driv
     from Medlyn import solve_std
+    from Medlyn_wGmin import solve_std2
     from Tuzet import Tuzet
     from SOX import supply_max
     from WUE_LWP import WUE_gs
     from ProfitMax import profit_psi
+    from ProfitMax_wGmin import profit_psi2
+    from ThermalCost import profit_therm
+    from ThermalCost_wGmin import profit_therm2
     from ProfitMax2 import profit_AE
     from CGain import Cgain_plc
     from CMax import Cmax_gs
     from LeastCost import least_cost
     from CAP import CAP
     from MES import MES
+    from ConstGs0_01 import solve_const0_01
+    from ConstGs0_1 import solve_const0_1
+    from ConstGs0_2 import solve_const0_2
+    from ConstGs0_3 import solve_const0_3
+    from ConstGs0_4 import solve_const0_4
+    from ConstGs0_5 import solve_const0_5
+    from TpDependent_down import Tp_dependent_down
+    from TpDependent_up import Tp_dependent_up
+    from Tair_regression import Tair_regr
 
 except (ImportError, ModuleNotFoundError):
     from TractLSM.CH2OCoupler.coupler_utils import calc_trans
     from TractLSM.CH2OCoupler.coupler_utils import Ci_sup_dem
     from TractLSM.CH2OCoupler.coupler_utils import A_trans
-    from TractLSM.CH2OCoupler.ObsGs import solve_obs
+    from TractLSM.CH2OCoupler.GsDriv import solve_gs_driv
     from TractLSM.CH2OCoupler.Medlyn import solve_std
+    from TractLSM.CH2OCoupler.Medlyn_wGmin import solve_std2
     from TractLSM.CH2OCoupler.Tuzet import Tuzet
     from TractLSM.CH2OCoupler.SOX import supply_max
     from TractLSM.CH2OCoupler.WUE_LWP import WUE_gs
     from TractLSM.CH2OCoupler.ProfitMax import profit_psi
+    from TractLSM.CH2OCoupler.ThermalCost import profit_therm
+    from TractLSM.CH2OCoupler.ThermalCost_wGmin import profit_therm2
+    from TractLSM.CH2OCoupler.ProfitMax_wGmin import profit_psi2
     from TractLSM.CH2OCoupler.ProfitMax2 import profit_AE
     from TractLSM.CH2OCoupler.CGain import Cgain_plc
     from TractLSM.CH2OCoupler.CMax import Cmax_gs
     from TractLSM.CH2OCoupler.LeastCost import least_cost
     from TractLSM.CH2OCoupler.CAP import CAP
     from TractLSM.CH2OCoupler.MES import MES
+    from TractLSM.CH2OCoupler.ConstGs0_01 import solve_const0_01
+    from TractLSM.CH2OCoupler.ConstGs0_1 import solve_const0_1
+    from TractLSM.CH2OCoupler.ConstGs0_2 import solve_const0_2
+    from TractLSM.CH2OCoupler.ConstGs0_3 import solve_const0_3
+    from TractLSM.CH2OCoupler.ConstGs0_4 import solve_const0_4
+    from TractLSM.CH2OCoupler.ConstGs0_5 import solve_const0_5
+    from TractLSM.CH2OCoupler.TpDependent_down import Tp_dependent_down
+    from TractLSM.CH2OCoupler.TpDependent_up import Tp_dependent_up
+    from TractLSM.CH2OCoupler.Tair_regression import Tair_regr

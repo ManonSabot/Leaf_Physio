@@ -64,7 +64,7 @@ def main(runsim=False):
     base_dir = get_main_dir()  # working paths
 
     # path to input files
-    ipath = os.path.join(os.path.join(base_dir, 'input'), 'observed_gs')
+    ipath = os.path.join(os.path.join(base_dir, 'input'), 'Anne_HW2_obs_gs')
 
     if not os.path.isdir(ipath):  # make dir
         os.makedirs(ipath)
@@ -133,8 +133,8 @@ def run_simulations(ipath, xfiles, yfiles):
             df.fillna(method='ffill', inplace=True)
 
             # run model
-            __ = hrun(fname, df, len(df.index), 'Farquhar', models=['Obs'],
-                      resolution='high')
+            __ = hrun(fname, df, len(df.index), 'Farquhar', models=['GsDriv'],
+                      resolution='low')
 
     return
 

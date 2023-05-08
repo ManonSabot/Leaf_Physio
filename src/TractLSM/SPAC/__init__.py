@@ -1,6 +1,6 @@
 try:
     from soil import water_potential
-    from hydraulics import Weibull_params, f, hydraulics
+    from hydraulics import Weibull_params, f, hydraulics, calc_kmax
     from fregulate import fwWP, fLWP, phiLWP, fPLC, hydraulic_cost, dkcost
     from fregulate import kcost, dcost_dpsi
     from canatm import vpsat, slope_vpsat, LH_water_vapour, psychometric
@@ -10,7 +10,7 @@ try:
 
 except (ImportError, ModuleNotFoundError):
     from TractLSM.SPAC.soil import water_potential
-    from TractLSM.SPAC.hydraulics import Weibull_params, f, hydraulics
+    from TractLSM.SPAC.hydraulics import Weibull_params, f, hydraulics, calc_kmax
     from TractLSM.SPAC.fregulate import fwWP, fLWP, phiLWP, fPLC, hydraulic_cost
     from TractLSM.SPAC.fregulate import dkcost, kcost, dcost_dpsi
     from TractLSM.SPAC.canatm import vpsat, slope_vpsat, LH_water_vapour

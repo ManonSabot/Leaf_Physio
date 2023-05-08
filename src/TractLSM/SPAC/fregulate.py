@@ -54,7 +54,7 @@ __email__ = "m.e.b.sabot@gmail.com"
 import numpy as np  # array manipulations, math operators
 
 # own modules
-from TractLSM.SPAC import f, Weibull_params  # hydraulics
+from TractLSM.SPAC import f, Weibull_params, calc_kmax  # hydraulics
 
 
 # ======================================================================
@@ -208,8 +208,10 @@ def hydraulic_cost(p, P):
     # Weibull parameters setting the shape of the vulnerability curve
     b, c = Weibull_params(p)  # MPa, unitless
     vc = f(P, b, c)
+    kmax = calc_kmax(p)
+    k = kmax * vc
 
-    return (f(p.Ps, b, c) - vc) / (f(p.Ps, b, c) - p.ratiocrit), vc
+    return (f(p.Ps, b, c) - vc) / (f(p.Ps, b, c) - p.ratiocrit), vc, k
 
 
 def fPLC(p, P):

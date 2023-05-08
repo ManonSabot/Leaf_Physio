@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-The profit maximisation algorithm, adapted from Sperry et al. (2017)'s
-hydraulic-limited stomatal optimization model.
+The profit maximisation algorithm that maximizes instantaneous carbon
+gain minus summed hydraulic and thermal costs.
 
 This file is part of the TractLSM model.
 
-Copyright (c) 2022 Manon E. B. Sabot
 
 Please refer to the terms of the MIT License, which you should have
 received along with the TractLSM.
@@ -21,10 +20,9 @@ Reference:
 """
 
 __title__ = "Profit maximisation algorithm"
-__author__ = "Manon E. B. Sabot"
+__author__ = "Camille Sicangco"
 __version__ = "3.0 (29.11.2018)"
-__email__ = "m.e.b.sabot@gmail.com"
-
+__email__ = "camillesicangco@gmail.com"
 
 # ======================================================================
 
@@ -43,7 +41,6 @@ from TractLSM.CH2OCoupler import A_trans
 # ======================================================================
 
 def photo_gain(p, trans, photo, res, inf_gb=False):
-
     """
     Calculates the photosynthetic carbon gain of a plant, where the
     photosynthetic rate (A) is evaluated over the array of leaf water
@@ -102,10 +99,63 @@ def photo_gain(p, trans, photo, res, inf_gb=False):
     return gain, Ci, mask
 
 
-def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
+def thermal_cost(p, trans, inf_gb=False):
+    """
+    Calculates the thermal cost function that reflects rapidly increasing
+    values of minimum fluorescence (F0), indicative of damage to
+    Photosystem II, at temperatures above Tcrit.
+
+    Arguments:
+    ----------
+    p: recarray object or pandas series or class containing the data
+        time step's met data & params
+
+    trans: array
+        transpiration [mol m-2 s-1], values depending on the possible
+        leaf water potentials (P) and the Weibull parameters b, c
+
+    res: string
+        either 'low' (default), 'med', or 'high' to run the optimising
+        solver
+
+    inf_gb: bool
+        if True, gb is prescrived and very large
+
+    Returns:
+    --------
+    gain: array
+        unitless instantaneous photosynthetic gains for possible values
+        of Ci minimized over the array of E
+
+    Ci: array
+        intercellular CO2 concentration [Pa] for which A(P) is minimized
+        to be as close as possible to the A predicted by either the
+        Collatz or the Farquhar photosynthetis model
+
+    mask: array
+        where Ci is valid vs. not
 
     """
-    Finds the instateneous profit maximization, following the
+    # calculate leaf temperature
+    Tleaf, __ = leaf_temperature(p, trans, inf_gb=inf_gb)
+
+    # estimate r
+    r = 2. / (p.T50 - p.Tcrit)
+
+    # get relative minimum fluorescence value
+    F0 = 1 / (1 + np.exp(-r * (Tleaf - p.T50)))
+    # F0 = (p.F0_max - p.F0_min) / (1 + np.exp(-r * (Tleaf - p.T50))) + p.F0_min
+
+    # calculate thermal cost
+    cost = F0
+    # cost = (F0 - p.F0_min) / (p.F0_max - p.F0_min)
+
+    return cost
+
+
+def profit_therm(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
+    """
+    Finds the instantaneous profit maximization, following the
     optimization criterion for which, at each instant in time, the
     stomata regulate canopy gas exchange and pressure to achieve the
     maximum profit, which is the maximum difference between the
@@ -162,9 +212,13 @@ def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
 
     # hydraulics and reduction factor
     P, trans = hydraulics(p, res=res)
-    cost, __, k = hydraulic_cost(p, P)
+    cost_hy, __, k = hydraulic_cost(p, P)
+
+    # thermal cost
+    cost_th = thermal_cost(p, trans)
 
     # expression of optimization
+    cost = cost_hy + cost_th
     gain, Ci, mask = photo_gain(p, trans, photo, res, inf_gb=inf_gb)
     expr = gain - cost[mask]
 
@@ -217,8 +271,8 @@ def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
         rublim = rubisco_limit(Aj, Ac)
 
         if ((np.isclose(trans, cst.zero, rtol=cst.zero, atol=cst.zero) and
-            (An > 0.)) or (idx[0] == len(P) - 1) or
-           any(np.isnan([An, Ci, trans, gs, Tleaf, Pleaf]))):
+             (An > 0.)) or (idx[0] == len(P) - 1) or
+                any(np.isnan([An, Ci, trans, gs, Tleaf, Pleaf]))):
             An, Ci, trans, gs, gb, Tleaf, Pleaf, k = (9999.,) * 7
 
         elif not np.isclose(trans, cst.zero, rtol=cst.zero, atol=cst.zero):

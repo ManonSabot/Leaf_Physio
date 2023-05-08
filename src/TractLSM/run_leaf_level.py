@@ -17,7 +17,6 @@ __author__ = "Manon E. B. Sabot"
 __version__ = "8.0 (29.08.2020)"
 __email__ = "m.e.b.sabot@gmail.com"
 
-
 # ======================================================================
 
 # general modules
@@ -27,18 +26,31 @@ import numpy as np  # maths operations
 # own modules
 from TractLSM import cst, conv  # general constants & unit conversions
 from TractLSM.SPAC import net_radiation  # radiative conditions
-from TractLSM.CH2OCoupler import solve_obs  # Observed gs as input
+from TractLSM.CH2OCoupler import solve_const0_01
+from TractLSM.CH2OCoupler import solve_const0_1
+from TractLSM.CH2OCoupler import solve_const0_2
+from TractLSM.CH2OCoupler import solve_const0_3
+from TractLSM.CH2OCoupler import solve_const0_4
+from TractLSM.CH2OCoupler import solve_const0_5
+from TractLSM.CH2OCoupler import solve_gs_driv  # Observed gs as input
 from TractLSM.CH2OCoupler import solve_std  # USO model (Medlyn)
 from TractLSM.CH2OCoupler import Tuzet  # Tuzet model (Tuzet)
 from TractLSM.CH2OCoupler import supply_max  # SOX (Eller) and SOX opt
 from TractLSM.CH2OCoupler import WUE_gs  # WUE-hydraulics (Wolf)
 from TractLSM.CH2OCoupler import profit_psi  # Profit max (Sperry)
+from TractLSM.CH2OCoupler import profit_therm # Profit max with thermal cost
+from TractLSM.CH2OCoupler import profit_psi2  # Profit max (Sperry), with variable gmin
 from TractLSM.CH2OCoupler import profit_AE  # Profit max (Wang)
 from TractLSM.CH2OCoupler import Cgain_plc  # Carbon gain net (Lu)
 from TractLSM.CH2OCoupler import Cmax_gs  # Carbon max (Wolf)
 from TractLSM.CH2OCoupler import least_cost  # Least cost (Prentice)
 from TractLSM.CH2OCoupler import CAP  # CAP optimisation (Dewar)
 from TractLSM.CH2OCoupler import MES  # MES optimisation (Dewar)
+from TractLSM.CH2OCoupler import Tp_dependent_down  # Tp dependent step function, downward
+from TractLSM.CH2OCoupler import Tp_dependent_up  # Tp dependent step function, upward
+from TractLSM.CH2OCoupler import solve_std2     # Medlyn model with variable gmin
+from TractLSM.CH2OCoupler import Tair_regr    # gs calculated from gs-Tair regression
+
 
 try:  # support functions
     from run_utils import find_model_cases, write_csv
@@ -51,7 +63,6 @@ except (ImportError, ModuleNotFoundError):
 
 def over_time(idata, step, Nsteps, dic, photo, resolution, inf_gb, temporal,
               deriv):
-
     """
     Optimization wrapper at each time step that updates the soil
     moisture and soil water potential for each of the models before
@@ -154,44 +165,165 @@ def over_time(idata, step, Nsteps, dic, photo, resolution, inf_gb, temporal,
     if p.PPFD <= 50.:  # min threshold for photosynthesis
 
         for key in dic.keys():
-
             dic[key]['A'], dic[key]['Ci'], dic[key]['Rublim'], dic[key]['E'], \
-                dic[key]['gs'], dic[key]['gb'], dic[key]['Tleaf'], \
-                dic[key]['Pleaf'] = (0.,) * 8
+            dic[key]['gs'], dic[key]['gb'], dic[key]['Tleaf'], \
+            dic[key]['Pleaf'] = (0.,) * 8
 
     else:  # day time
         p.Rnet = net_radiation(p)  # radiative conditions
 
-        if 'obs' in dic.keys():  # gs is observed, getting the rest
+        if 'Treg' in dic.keys():  # standard model (Medlyn)
             try:
-                dic['obs']['A'], dic['obs']['Ci'], dic['obs']['Rublim'], \
-                    dic['obs']['E'], dic['obs']['gs'], dic['obs']['gb'], \
-                    dic['obs']['Tleaf'], dic['obs']['Pleaf'] = \
-                    solve_obs(p, photo=photo, res=resolution, inf_gb=inf_gb)
+                dic['Treg']['A'], dic['Treg']['Ci'], dic['Treg']['Rublim'], \
+                dic['Treg']['E'], dic['Treg']['gs'], dic['Treg']['gb'], \
+                dic['Treg']['Tleaf'], dic['Treg']['Pleaf'] = \
+                    Tair_regr(p, photo=photo, res=resolution, inf_gb=inf_gb)
 
             except (IndexError, ValueError):  # no solve
-                dic['obs']['A'], dic['obs']['Ci'], dic['obs']['Rublim'], \
-                    dic['obs']['E'], dic['obs']['gs'], dic['obs']['gb'], \
-                    dic['obs']['Tleaf'], dic['obs']['Pleaf'] = (9999.,) * 8
+                dic['Treg']['A'], dic['Treg']['Ci'], dic['Treg']['Rublim'], \
+                dic['Treg']['E'], dic['Treg']['gs'], dic['Treg']['gb'], \
+                dic['Treg']['Tleaf'], dic['Treg']['Pleaf'] = (9999.,) * 8
+
+        if 'TpDep_d' in dic.keys():  # standard model (Medlyn)
+            try:
+                dic['TpDep_d']['A'], dic['TpDep_d']['Ci'], dic['TpDep_d']['Rublim'], \
+                dic['TpDep_d']['E'], dic['TpDep_d']['gs'], dic['TpDep_d']['gb'], \
+                dic['TpDep_d']['Tleaf'], dic['TpDep_d']['Pleaf'] = \
+                    Tp_dependent_down(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['TpDep_d']['A'], dic['TpDep_d']['Ci'], dic['TpDep_d']['Rublim'], \
+                dic['TpDep_d']['E'], dic['TpDep_d']['gs'], dic['TpDep_d']['gb'], \
+                dic['TpDep_d']['Tleaf'], dic['TpDep_d']['Pleaf'] = (9999.,) * 8
+                
+        if 'TpDep_u' in dic.keys():  # standard model (Medlyn)
+            try:
+                dic['TpDep_u']['A'], dic['TpDep_u']['Ci'], dic['TpDep_u']['Rublim'], \
+                dic['TpDep_u']['E'], dic['TpDep_u']['gs'], dic['TpDep_u']['gb'], \
+                dic['TpDep_u']['Tleaf'], dic['TpDep_u']['Pleaf'] = \
+                    Tp_dependent_up(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['TpDep_u']['A'], dic['TpDep_u']['Ci'], dic['TpDep_u']['Rublim'], \
+                dic['TpDep_u']['E'], dic['TpDep_u']['gs'], dic['TpDep_u']['gb'], \
+                dic['TpDep_u']['Tleaf'], dic['TpDep_u']['Pleaf'] = (9999.,) * 8
+
+        if 'Const0.01' in dic.keys():  # constant gs model, low
+            try:
+                dic['Const0.01']['A'], dic['Const0.01']['Ci'], dic['Const0.01']['Rublim'], \
+                dic['Const0.01']['E'], dic['Const0.01']['gs'], dic['Const0.01']['gb'], \
+                dic['Const0.01']['Tleaf'], dic['Const0.01']['Pleaf'] = \
+                    solve_const0_01(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['Const0.01']['A'], dic['Const0.01']['Ci'], dic['Const0.01']['Rublim'], \
+                dic['Const0.01']['E'], dic['Const0.01']['gs'], dic['Const0.01']['gb'], \
+                dic['Const0.01']['Tleaf'], dic['Const0.01']['Pleaf'] = (9999.,) * 8
+
+        if 'Const0.1' in dic.keys():  # constant gs model, low
+            try:
+                dic['Const0.1']['A'], dic['Const0.1']['Ci'], dic['Const0.1']['Rublim'], \
+                dic['Const0.1']['E'], dic['Const0.1']['gs'], dic['Const0.1']['gb'], \
+                dic['Const0.1']['Tleaf'], dic['Const0.1']['Pleaf'] = \
+                    solve_const0_1(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['Const0.1']['A'], dic['Const0.1']['Ci'], dic['Const0.1']['Rublim'], \
+                dic['Const0.1']['E'], dic['Const0.1']['gs'], dic['Const0.1']['gb'], \
+                dic['Const0.1']['Tleaf'], dic['Const0.1']['Pleaf'] = (9999.,) * 8
+                
+        if 'Const0.2' in dic.keys():  # constant gs model, low
+            try:
+                dic['Const0.2']['A'], dic['Const0.2']['Ci'], dic['Const0.2']['Rublim'], \
+                dic['Const0.2']['E'], dic['Const0.2']['gs'], dic['Const0.2']['gb'], \
+                dic['Const0.2']['Tleaf'], dic['Const0.2']['Pleaf'] = \
+                    solve_const0_2(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['Const0.2']['A'], dic['Const0.2']['Ci'], dic['Const0.2']['Rublim'], \
+                dic['Const0.2']['E'], dic['Const0.2']['gs'], dic['Const0.2']['gb'], \
+                dic['Const0.2']['Tleaf'], dic['Const0.2']['Pleaf'] = (9999.,) * 8
+
+        if 'Const0.3' in dic.keys():  # constant gs model, low
+            try:
+                dic['Const0.3']['A'], dic['Const0.3']['Ci'], dic['Const0.3']['Rublim'], \
+                dic['Const0.3']['E'], dic['Const0.3']['gs'], dic['Const0.3']['gb'], \
+                dic['Const0.3']['Tleaf'], dic['Const0.3']['Pleaf'] = \
+                    solve_const0_3(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['Const0.3']['A'], dic['Const0.3']['Ci'], dic['Const0.3']['Rublim'], \
+                dic['Const0.3']['E'], dic['Const0.3']['gs'], dic['Const0.3']['gb'], \
+                dic['Const0.3']['Tleaf'], dic['Const0.3']['Pleaf'] = (9999.,) * 8
+                
+        if 'Const0.4' in dic.keys():  # constant gs model, low
+            try:
+                dic['Const0.4']['A'], dic['Const0.4']['Ci'], dic['Const0.4']['Rublim'], \
+                dic['Const0.4']['E'], dic['Const0.4']['gs'], dic['Const0.4']['gb'], \
+                dic['Const0.4']['Tleaf'], dic['Const0.4']['Pleaf'] = \
+                    solve_const0_4(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['Const0.4']['A'], dic['Const0.4']['Ci'], dic['Const0.4']['Rublim'], \
+                dic['Const0.4']['E'], dic['Const0.4']['gs'], dic['Const0.4']['gb'], \
+                dic['Const0.4']['Tleaf'], dic['Const0.4']['Pleaf'] = (9999.,) * 8
+
+        if 'Const0.5' in dic.keys():  # constant gs model, low
+            try:
+                dic['Const0.5']['A'], dic['Const0.5']['Ci'], dic['Const0.5']['Rublim'], \
+                dic['Const0.5']['E'], dic['Const0.5']['gs'], dic['Const0.5']['gb'], \
+                dic['Const0.5']['Tleaf'], dic['Const0.5']['Pleaf'] = \
+                    solve_const0_5(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['Const0.5']['A'], dic['Const0.5']['Ci'], dic['Const0.5']['Rublim'], \
+                dic['Const0.5']['E'], dic['Const0.5']['gs'], dic['Const0.5']['gb'], \
+                dic['Const0.5']['Tleaf'], dic['Const0.5']['Pleaf'] = (9999.,) * 8
+
+        if 'driv' in dic.keys():  # gs is driverved, getting the rest
+            try:
+                dic['driv']['A'], dic['driv']['Ci'], dic['driv']['Rublim'], \
+                dic['driv']['E'], dic['driv']['gs'], dic['driv']['gb'], \
+                dic['driv']['Tleaf'], dic['driv']['Pleaf'] = \
+                    solve_gs_driv(p, photo=photo, res=resolution, inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['driv']['A'], dic['driv']['Ci'], dic['driv']['Rublim'], \
+                dic['driv']['E'], dic['driv']['gs'], dic['driv']['gb'], \
+                dic['driv']['Tleaf'], dic['driv']['Pleaf'] = (9999.,) * 8
+
+        if 'std_gmin' in dic.keys():  # standard model (Medlyn) with variable gmin
+            try:
+                dic['std_gmin']['A'], dic['std_gmin']['Ci'], dic['std_gmin']['Rublim'], \
+                dic['std_gmin']['E'], dic['std_gmin']['gs'], dic['std_gmin']['gb'], \
+                dic['std_gmin']['gmin'], dic['std_gmin']['Tleaf'], dic['std_gmin']['Pleaf'] = \
+                solve_std2(p, p.sw, photo=photo, res=resolution,
+                inf_gb=inf_gb)
+
+            except (IndexError, ValueError):  # no solve
+                dic['std_gmin']['A'], dic['std_gmin']['Ci'], dic['std_gmin']['Rublim'], \
+                dic['std_gmin']['E'], dic['std_gmin']['gs'], dic['std_gmin']['gb'], \
+                dic['std_gmin']['gmin'], dic['std_gmin']['Tleaf'], dic['std_gmin']['Pleaf'] = \
+                (9999.,) * 9
 
         if 'std' in dic.keys():  # standard model (Medlyn)
             try:
                 dic['std']['A'], dic['std']['Ci'], dic['std']['Rublim'], \
-                    dic['std']['E'], dic['std']['gs'], dic['std']['gb'], \
-                    dic['std']['Tleaf'], dic['std']['Pleaf'] = \
+                dic['std']['E'], dic['std']['gs'], dic['std']['gb'], \
+                dic['std']['Tleaf'], dic['std']['Pleaf'] = \
                     solve_std(p, p.sw, photo=photo, res=resolution,
                               inf_gb=inf_gb)
 
             except (IndexError, ValueError):  # no solve
                 dic['std']['A'], dic['std']['Ci'], dic['std']['Rublim'], \
-                    dic['std']['E'], dic['std']['gs'], dic['std']['gb'], \
-                    dic['std']['Tleaf'], dic['std']['Pleaf'] = (9999.,) * 8
+                dic['std']['E'], dic['std']['gs'], dic['std']['gb'], \
+                dic['std']['Tleaf'], dic['std']['Pleaf'] = (9999.,) * 8
 
         if 'tuz' in dic.keys():  # Tuzet
             try:
                 dic['tuz']['A'], dic['tuz']['Ci'], dic['tuz']['Rublim'], \
-                    dic['tuz']['E'], dic['tuz']['gs'], dic['tuz']['gb'], \
-                    dic['tuz']['Tleaf'], dic['tuz']['Pleaf'] = \
+                dic['tuz']['E'], dic['tuz']['gs'], dic['tuz']['gb'], \
+                dic['tuz']['Tleaf'], dic['tuz']['Pleaf'] = \
                     Tuzet(p, photo=photo, res=resolution, inf_gb=inf_gb)
 
                 if temporal and step < Nsteps - 1:
@@ -200,8 +332,8 @@ def over_time(idata, step, Nsteps, dic, photo, resolution, inf_gb, temporal,
 
             except (IndexError, ValueError):  # no solve
                 dic['tuz']['A'], dic['tuz']['Ci'], dic['tuz']['Rublim'], \
-                    dic['tuz']['E'], dic['tuz']['gs'], dic['tuz']['gb'], \
-                    dic['tuz']['Tleaf'], dic['tuz']['Pleaf'] = (9999.,) * 8
+                dic['tuz']['E'], dic['tuz']['gs'], dic['tuz']['gb'], \
+                dic['tuz']['Tleaf'], dic['tuz']['Pleaf'] = (9999.,) * 8
 
         if len(Scases) >= 1:  # SOX model
 
@@ -212,134 +344,174 @@ def over_time(idata, step, Nsteps, dic, photo, resolution, inf_gb, temporal,
 
                 try:
                     dic[SOX]['A'], dic[SOX]['Ci'], dic[SOX]['Rublim'], \
-                        dic[SOX]['E'], dic[SOX]['gs'], dic[SOX]['gb'], \
-                        dic[SOX]['Tleaf'], dic[SOX]['Pleaf'] = \
+                    dic[SOX]['E'], dic[SOX]['gs'], dic[SOX]['gb'], \
+                    dic[SOX]['Tleaf'], dic[SOX]['Pleaf'] = \
                         supply_max(p, photo=photo, res=resolution,
                                    case=this_case, inf_gb=inf_gb)
 
                 except (IndexError, ValueError):  # no solve
                     dic[SOX]['A'], dic[SOX]['Ci'], dic[SOX]['Rublim'], \
-                        dic[SOX]['E'], dic[SOX]['gs'], dic[SOX]['gb'], \
-                        dic[SOX]['Tleaf'], dic[SOX]['Pleaf'] = (9999.,) * 8
+                    dic[SOX]['E'], dic[SOX]['gs'], dic[SOX]['gb'], \
+                    dic[SOX]['Tleaf'], dic[SOX]['Pleaf'] = (9999.,) * 8
 
         if 'wue' in dic.keys():
             try:
                 dic['wue']['A'], dic['wue']['Ci'], dic['wue']['Rublim'], \
-                    dic['wue']['E'], dic['wue']['gs'], dic['wue']['gb'], \
-                    dic['wue']['Tleaf'], dic['wue']['Pleaf'] = \
+                dic['wue']['E'], dic['wue']['gs'], dic['wue']['gb'], \
+                dic['wue']['Tleaf'], dic['wue']['Pleaf'] = \
                     WUE_gs(p, photo=photo, res=resolution, inf_gb=inf_gb,
                            deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['wue']['A'], dic['wue']['Ci'], dic['wue']['Rublim'], \
-                    dic['wue']['E'], dic['wue']['gs'], dic['wue']['gb'], \
-                    dic['wue']['Tleaf'], dic['wue']['Pleaf'] = (9999.,) * 8
+                dic['wue']['E'], dic['wue']['gs'], dic['wue']['gb'], \
+                dic['wue']['Tleaf'], dic['wue']['Pleaf'] = (9999.,) * 8
 
         if 'cmax' in dic.keys():
             try:
                 dic['cmax']['A'], dic['cmax']['Ci'], dic['cmax']['Rublim'], \
-                    dic['cmax']['E'], dic['cmax']['gs'], dic['cmax']['gb'], \
-                    dic['cmax']['Tleaf'], dic['cmax']['Pleaf'] = \
+                dic['cmax']['E'], dic['cmax']['gs'], dic['cmax']['gb'], \
+                dic['cmax']['Tleaf'], dic['cmax']['Pleaf'] = \
                     Cmax_gs(p, photo=photo, res=resolution, inf_gb=inf_gb)
 
             except (IndexError, ValueError):  # no solve
                 dic['cmax']['A'], dic['cmax']['Ci'], dic['cmax']['Rublim'], \
-                    dic['cmax']['E'], dic['cmax']['gs'], dic['cmax']['gb'], \
-                    dic['cmax']['Tleaf'], dic['cmax']['Pleaf'] = (9999.,) * 8
+                dic['cmax']['E'], dic['cmax']['gs'], dic['cmax']['gb'], \
+                dic['cmax']['Tleaf'], dic['cmax']['Pleaf'] = (9999.,) * 8
 
+        if 'therm' in dic.keys():  # ProfitMax
+            try:
+                dic['therm']['A'], dic['therm']['Ci'], dic['therm']['Rublim'], \
+                dic['therm']['E'], dic['therm']['gs'], dic['therm']['gb'], \
+                dic['therm']['Tleaf'], dic['therm']['Pleaf'], dic['therm']['k'] = \
+                    profit_therm(p, photo=photo, res=resolution, inf_gb=inf_gb,
+                               deriv=deriv)
+
+            except (IndexError, ValueError):  # no solve
+                dic['therm']['A'], dic['therm']['Ci'], dic['therm']['Rublim'], \
+                dic['therm']['E'], dic['therm']['gs'], dic['therm']['gb'], \
+                dic['therm']['Tleaf'], dic['therm']['Pleaf'], dic['therm']['k'] = (9999.,) * 9
+        
+        if 'therm_gmin' in dic.keys():  # ProfitMax
+            try:
+                dic['therm_gmin']['A'], dic['therm_gmin']['Ci'], dic['therm_gmin']['Rublim'], \
+                dic['therm_gmin']['E'], dic['therm_gmin']['gs'], dic['therm_gmin']['gb'], \
+                dic['therm_gmin']['Tleaf'], dic['therm_gmin']['Pleaf'], dic['therm_gmin']['k'] = \
+                    profit_therm_gmin(p, photo=photo, res=resolution, inf_gb=inf_gb,
+                               deriv=deriv)
+
+            except (IndexError, ValueError):  # no solve
+                dic['therm_gmin']['A'], dic['therm_gmin']['Ci'], dic['therm_gmin']['Rublim'], \
+                dic['therm_gmin']['E'], dic['therm_gmin']['gs'], dic['therm_gmin']['gb'], \
+                dic['therm_gmin']['Tleaf'], dic['therm_gmin']['Pleaf'], dic['therm_gmin']['k'] = (9999.,) * 9
+        
         if 'pmax' in dic.keys():  # ProfitMax
             try:
                 dic['pmax']['A'], dic['pmax']['Ci'], dic['pmax']['Rublim'], \
-                    dic['pmax']['E'], dic['pmax']['gs'], dic['pmax']['gb'], \
-                    dic['pmax']['Tleaf'], dic['pmax']['Pleaf'] = \
+                dic['pmax']['E'], dic['pmax']['gs'], dic['pmax']['gb'], \
+                dic['pmax']['Tleaf'], dic['pmax']['Pleaf'], dic['pmax']['k'] = \
                     profit_psi(p, photo=photo, res=resolution, inf_gb=inf_gb,
                                deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['pmax']['A'], dic['pmax']['Ci'], dic['pmax']['Rublim'], \
-                    dic['pmax']['E'], dic['pmax']['gs'], dic['pmax']['gb'], \
-                    dic['pmax']['Tleaf'], dic['pmax']['Pleaf'] = (9999.,) * 8
+                dic['pmax']['E'], dic['pmax']['gs'], dic['pmax']['gb'], \
+                dic['pmax']['Tleaf'], dic['pmax']['Pleaf'], dic['pmax']['k'] = (9999.,) * 9
+        
+        if 'pmax_gmin' in dic.keys():  # ProfitMax
+            try:
+                dic['pmax_gmin']['A'], dic['pmax_gmin']['Ci'], dic['pmax_gmin']['Rublim'], \
+                dic['pmax_gmin']['E'], dic['pmax_gmin']['gs'], dic['pmax_gmin']['gb'], \
+                dic['pmax_gmin']['gmin'], dic['pmax_gmin']['Tleaf'], dic['pmax_gmin']['Pleaf'], \
+                dic['pmax_gmin']['k'] = \
+                    profit_psi2(p, photo=photo, res=resolution, inf_gb=inf_gb,
+                               deriv=deriv)
+
+            except (IndexError, ValueError):  # no solve
+                dic['pmax_gmin']['A'], dic['pmax_gmin']['Ci'], dic['pmax_gmin']['Rublim'], \
+                dic['pmax_gmin']['E'], dic['pmax_gmin']['gs'], dic['pmax_gmin']['gb'], \
+                dic['pmax_gmin']['gmin'], dic['pmax_gmin']['Tleaf'], dic['pmax_gmin']['Pleaf'], \
+                dic['pmax_gmin']['k'] = (9999.,) * 10
 
         if 'cgn' in dic.keys():  # CGain
             try:
                 dic['cgn']['A'], dic['cgn']['Ci'], dic['cgn']['Rublim'], \
-                    dic['cgn']['E'], dic['cgn']['gs'], dic['cgn']['gb'], \
-                    dic['cgn']['Tleaf'], dic['cgn']['Pleaf'] = \
+                dic['cgn']['E'], dic['cgn']['gs'], dic['cgn']['gb'], \
+                dic['cgn']['Tleaf'], dic['cgn']['Pleaf'] = \
                     Cgain_plc(p, photo=photo, res=resolution, inf_gb=inf_gb,
                               deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['cgn']['A'], dic['cgn']['Ci'], dic['cgn']['Rublim'], \
-                    dic['cgn']['E'], dic['cgn']['gs'], dic['cgn']['gb'], \
-                    dic['cgn']['Tleaf'], dic['cgn']['Pleaf'] = (9999.,) * 8
+                dic['cgn']['E'], dic['cgn']['gs'], dic['cgn']['gb'], \
+                dic['cgn']['Tleaf'], dic['cgn']['Pleaf'] = (9999.,) * 8
 
         if 'pmax2' in dic.keys():  # ProfitMax2
             try:
                 dic['pmax2']['A'], dic['pmax2']['Ci'], \
-                    dic['pmax2']['Rublim'], dic['pmax2']['E'], \
-                    dic['pmax2']['gs'], dic['pmax2']['gb'], \
-                    dic['pmax2']['Tleaf'], dic['pmax2']['Pleaf'] = \
+                dic['pmax2']['Rublim'], dic['pmax2']['E'], \
+                dic['pmax2']['gs'], dic['pmax2']['gb'], \
+                dic['pmax2']['Tleaf'], dic['pmax2']['Pleaf'] = \
                     profit_AE(p, photo=photo, res=resolution, inf_gb=inf_gb,
                               deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['pmax2']['A'], dic['pmax2']['Ci'], \
-                    dic['pmax2']['Rublim'], dic['pmax2']['E'], \
-                    dic['pmax2']['gs'], dic['pmax2']['gb'], \
-                    dic['pmax2']['Tleaf'], dic['pmax2']['Pleaf'] = (9999.,) * 8
+                dic['pmax2']['Rublim'], dic['pmax2']['E'], \
+                dic['pmax2']['gs'], dic['pmax2']['gb'], \
+                dic['pmax2']['Tleaf'], dic['pmax2']['Pleaf'] = (9999.,) * 8
 
         if 'lcst' in dic.keys():  # LeastCost
             try:
                 dic['lcst']['A'], dic['lcst']['Ci'], dic['lcst']['Rublim'], \
-                    dic['lcst']['E'], dic['lcst']['gs'], dic['lcst']['gb'], \
-                    dic['lcst']['Tleaf'], dic['lcst']['Pleaf'] = \
+                dic['lcst']['E'], dic['lcst']['gs'], dic['lcst']['gb'], \
+                dic['lcst']['Tleaf'], dic['lcst']['Pleaf'] = \
                     least_cost(p, photo=photo, res=resolution, inf_gb=inf_gb,
                                deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['lcst']['A'], dic['lcst']['Ci'], dic['lcst']['Rublim'], \
-                    dic['lcst']['E'], dic['lcst']['gs'], dic['lcst']['gb'], \
-                    dic['lcst']['Tleaf'], dic['lcst']['Pleaf'] = (9999.,) * 8
+                dic['lcst']['E'], dic['lcst']['gs'], dic['lcst']['gb'], \
+                dic['lcst']['Tleaf'], dic['lcst']['Pleaf'] = (9999.,) * 8
 
         if 'cap' in dic.keys():  # CAP (Dewar)
             try:
                 dic['cap']['A'], dic['cap']['Ci'], dic['cap']['Rublim'], \
-                    dic['cap']['E'], dic['cap']['gs'], dic['cap']['gb'], \
-                    dic['cap']['Tleaf'], dic['cap']['Pleaf'] = \
+                dic['cap']['E'], dic['cap']['gs'], dic['cap']['gb'], \
+                dic['cap']['Tleaf'], dic['cap']['Pleaf'] = \
                     CAP(p, photo=photo, res=resolution, inf_gb=inf_gb,
                         deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['cap']['A'], dic['cap']['Ci'], dic['cap']['Rublim'], \
-                    dic['cap']['E'], dic['cap']['gs'], dic['cap']['gb'], \
-                    dic['cap']['Tleaf'], dic['cap']['Pleaf'] = (9999.,) * 8
+                dic['cap']['E'], dic['cap']['gs'], dic['cap']['gb'], \
+                dic['cap']['Tleaf'], dic['cap']['Pleaf'] = (9999.,) * 8
 
         if 'mes' in dic.keys():  # MES (Dewar)
             try:
                 dic['mes']['A'], dic['mes']['Ci'], dic['mes']['Rublim'], \
-                    dic['mes']['E'], dic['mes']['gs'], dic['mes']['gb'], \
-                    dic['mes']['Tleaf'], dic['mes']['Pleaf'] = \
+                dic['mes']['E'], dic['mes']['gs'], dic['mes']['gb'], \
+                dic['mes']['Tleaf'], dic['mes']['Pleaf'] = \
                     MES(p, photo=photo, res=resolution, inf_gb=inf_gb,
                         deriv=deriv)
 
             except (IndexError, ValueError):  # no solve
                 dic['mes']['A'], dic['mes']['Ci'], dic['mes']['Rublim'], \
-                    dic['mes']['E'], dic['mes']['gs'], dic['mes']['gb'], \
-                    dic['mes']['Tleaf'], dic['mes']['Pleaf'] = (9999.,) * 8
+                dic['mes']['E'], dic['mes']['gs'], dic['mes']['gb'], \
+                dic['mes']['Tleaf'], dic['mes']['Pleaf'] = (9999.,) * 8
 
     # output must be in same order than output dic
     for key in dic.keys():
-
         tpl_return += (dic[key]['A'], dic[key]['E'], dic[key]['gs'],
-                       dic[key]['gb'], dic[key]['Ci'], dic[key]['Tleaf'],
-                       dic[key]['Pleaf'], dic[key]['Rublim'], dic[key]['Ps'],)
+                       dic[key]['gb'], dic[key]['gmin'], dic[key]['Ci'],
+                       dic[key]['Tleaf'], dic[key]['Pleaf'],dic[key]['k'],
+                       dic[key]['Rublim'], dic[key]['Ps'],)
 
     return tpl_return
 
 
 def run(fname, df, Nsteps, photo, models=['Medlyn', 'ProfitMax'],
         resolution=None, inf_gb=False, temporal=True, deriv=False):
-
     """
     Runs the profit maximisation algorithm within a simplified LSM,
     alongside the Medlyn model which follows traditional photosynthesis
@@ -394,21 +566,71 @@ def run(fname, df, Nsteps, photo, models=['Medlyn', 'ProfitMax'],
     output_dic = collections.OrderedDict()  # unpack the output in order
 
     # sub-dic structures
-    dic_keys = ['A', 'E', 'gs', 'gb', 'Ci', 'Tleaf', 'Pleaf', 'Rublim', 'Ps']
+    dic_keys = ['A', 'E', 'gs', 'gb', 'gmin', 'Ci', 'Tleaf', 'Pleaf', 'k', 'Rublim', 'Ps']
     subdic = {key: None for key in dic_keys}
 
     # for the output dic, the order of the keys matters!
     subdic2 = collections.OrderedDict([(key, None) for key in dic_keys])
 
+    # gs calculated based on regression with Tair
+    if ('Tair_reg' in models) or ('Tair_reg'.lower() in models):
+        dic['Treg'] = subdic.copy()
+        output_dic['Treg'] = subdic2.copy()
+
+    # Tp depedent downward step function
+    if ('TpDep_d' in models) or ('TpDep_d'.lower() in models):
+        dic['TpDep_d'] = subdic.copy()
+        output_dic['TpDep_d'] = subdic2.copy()
+
+    # Tp depedent downward step function
+    if ('TpDep_u' in models) or ('TpDep_u'.lower() in models):
+        dic['TpDep_u'] = subdic.copy()
+        output_dic['TpDep_u'] = subdic2.copy()
+
+    # Constant gs, low
+    if ('Const0.01' in models) or ('Const0.01'.lower() in models):
+        dic['Const0.01'] = subdic.copy()
+        output_dic['Const0.01'] = subdic2.copy()
+
+    # Constant gs, medium
+    if ('Const0.1' in models) or ('Const0.1'.lower() in models):
+        dic['Const0.1'] = subdic.copy()
+        output_dic['Const0.1'] = subdic2.copy()
+
+    # Constant gs, high
+    if ('Const0.2' in models) or ('Const0.2'.lower() in models):
+        dic['Const0.2'] = subdic.copy()
+        output_dic['Const0.2'] = subdic2.copy()
+
+    # Constant gs, high
+    if ('Const0.3' in models) or ('Const0.3'.lower() in models):
+        dic['Const0.3'] = subdic.copy()
+        output_dic['Const0.3'] = subdic2.copy()
+        
+    # Constant gs, high
+    if ('Const0.4' in models) or ('Const0.4'.lower() in models):
+        dic['Const0.4'] = subdic.copy()
+        output_dic['Const0.4'] = subdic2.copy()
+        
+    # Constant gs, high
+    if ('Const0.5' in models) or ('Const0.5'.lower() in models):
+        dic['Const0.5'] = subdic.copy()
+        output_dic['Const0.5'] = subdic2.copy()
+
     # Driven by observed gs
-    if ('Obs' in models) or ('Obs'.lower() in models):
-        dic['obs'] = subdic.copy()
-        output_dic['obs'] = subdic2.copy()
+    if ('GsDriv' in models) or ('GsDriv'.lower() in models):
+        dic['driv'] = subdic.copy()
+        output_dic['driv'] = subdic2.copy()
 
     # Medlyn model
     if ('Medlyn' in models) or ('Medlyn'.lower() in models):
         dic['std'] = subdic.copy()
         output_dic['std'] = subdic2.copy()
+
+    # Medlyn model plus variable gmin
+    if ('Medlyn_wGmin' in models) or ('Medlyn_wGmin'.lower() in models):
+        dic['std_gmin'] = subdic.copy()
+        output_dic['std_gmin'] = subdic2.copy()
 
     # Tuzet model
     if ('Tuzet' in models) or ('Tuzet'.lower() in models):
@@ -427,7 +649,6 @@ def run(fname, df, Nsteps, photo, models=['Medlyn', 'ProfitMax'],
     if len(Scases) >= 1:
 
         for case in Scases:
-
             dic['sox%d' % (case)] = subdic.copy()
             output_dic['sox%d' % (case)] = subdic2.copy()
 
@@ -441,10 +662,25 @@ def run(fname, df, Nsteps, photo, models=['Medlyn', 'ProfitMax'],
         dic['cmax'] = subdic.copy()
         output_dic['cmax'] = subdic2.copy()
 
+    # ThermalCost model
+    if ('ThermalCost' in models) or ('ThermalCost'.lower() in models):
+        dic['therm'] = subdic.copy()
+        output_dic['therm'] = subdic2.copy()
+
+    # ThermalCost model, with variable gmin
+    if ('ThermalCost_wGmin' in models) or ('ThermalCost_wGmin'.lower() in models):
+        dic['therm_gmin'] = subdic.copy()
+        output_dic['therm_gmin'] = subdic2.copy()
+
     # ProfitMax model
     if ('ProfitMax' in models) or ('ProfitMax'.lower() in models):
         dic['pmax'] = subdic.copy()
         output_dic['pmax'] = subdic2.copy()
+
+    # ProfitMax model, with variable gmin
+    if ('ProfitMax_wGmin' in models) or ('ProfitMax_wGmin'.lower() in models):
+        dic['pmax_gmin'] = subdic.copy()
+        output_dic['pmax_gmin'] = subdic2.copy()
 
     # CGain model
     if ('CGain' in models) or ('CGain'.lower() in models):
@@ -502,17 +738,18 @@ def run(fname, df, Nsteps, photo, models=['Medlyn', 'ProfitMax'],
     track = 0  # initialize
 
     for key in output_dic.keys():
-
         output_dic[key]['A'] = tpl_out[track]
         output_dic[key]['E'] = tpl_out[track + 1]
         output_dic[key]['gs'] = tpl_out[track + 2]
         output_dic[key]['gb'] = tpl_out[track + 3]
-        output_dic[key]['Ci'] = tpl_out[track + 4]
-        output_dic[key]['Tleaf'] = tpl_out[track + 5]
-        output_dic[key]['Pleaf'] = tpl_out[track + 6]
-        output_dic[key]['Rublim'] = tpl_out[track + 7]
-        output_dic[key]['Ps'] = tpl_out[track + 8]
-        track += 9
+        output_dic[key]['gmin'] = tpl_out[track + 4]
+        output_dic[key]['Ci'] = tpl_out[track + 5]
+        output_dic[key]['Tleaf'] = tpl_out[track + 6]
+        output_dic[key]['Pleaf'] = tpl_out[track + 7]
+        output_dic[key]['k'] = tpl_out[track + 8]
+        output_dic[key]['Rublim'] = tpl_out[track + 9]
+        output_dic[key]['Ps'] = tpl_out[track + 10]
+        track += 11
 
     # save the outputs to a csv file and get the corresponding dataframe
     df2 = write_csv(fname, df, output_dic)

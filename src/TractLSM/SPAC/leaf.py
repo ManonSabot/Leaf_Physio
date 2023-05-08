@@ -212,13 +212,13 @@ def leaf_temperature(p, trans, Tleaf=None, gs=None, inf_gb=False):
 
     # get conductances, mol m-2 s-1
     if gs is None:
-        gH, gb, __ = conductances(p, Tleaf=Tleaf, inf_gb=inf_gb)
+        gH, gb, gr = conductances(p, Tleaf=Tleaf, inf_gb=inf_gb)
 
         # for initialisation, before we know gs
         gw = p.Patm * trans / p.VPD
 
     else:
-        gw, gH, gb, __ = conductances(p, Tleaf=Tleaf, gs=gs, inf_gb=inf_gb)
+        gw, gH, gb, gr = conductances(p, Tleaf=Tleaf, gs=gs, inf_gb=inf_gb)
 
     if inf_gb and (gs is not None):
         gw = gs
@@ -234,6 +234,12 @@ def leaf_temperature(p, trans, Tleaf=None, gs=None, inf_gb=False):
 
     # Tleaf, deg C, eq 14.6 of Campbell & Norman, 1998
     Tleaf = p.Tair + H / (cst.Cp * gH + Lambda * slp * gw / p.Patm)
+
+    # Denominator term
+    # denom = cst.Cp * (gH + gr) + Lambda * slp * gw / p.Patm
+
+    # Tleaf, deg C, eq 14.6 of Campbell & Norman, 1998
+    # Tleaf = H / denom * (1 / (1 - cst.Cp * gr / denom)) + p.Tair
 
     return Tleaf, gb
 

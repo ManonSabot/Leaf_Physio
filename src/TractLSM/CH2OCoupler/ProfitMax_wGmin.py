@@ -20,8 +20,8 @@ Reference:
 
 """
 
-__title__ = "Profit maximisation algorithm"
-__author__ = "Manon E. B. Sabot"
+__title__ = "Profit maximisation algorithm with variable gmin"
+__author__ = "Manon E. B. Sabot, Camille Sicangco"
 __version__ = "3.0 (29.11.2018)"
 __email__ = "m.e.b.sabot@gmail.com"
 
@@ -102,7 +102,7 @@ def photo_gain(p, trans, photo, res, inf_gb=False):
     return gain, Ci, mask
 
 
-def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
+def profit_psi2(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
 
     """
     Finds the instateneous profit maximization, following the
@@ -171,6 +171,8 @@ def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
     # deal with edge cases by rebounding the solution
     gc, gs, gb, __ = leaf_energy_balance(p, trans[mask], inf_gb=inf_gb)
 
+
+
     if deriv:  # derivative form
         expr = np.abs(np.gradient(expr, P[mask]))
 
@@ -209,6 +211,17 @@ def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
         except (IndexError, AttributeError, ValueError):  # calc. Tleaf
             Tleaf, __ = leaf_temperature(p, trans, gs=gs, inf_gb=inf_gb)
 
+        # calculate gmin
+        Q10a = 1.2  # Riederer & Muller 2006
+        Q10b = 4.8  # Riederer & Muller 2006
+        if Tleaf < p.Tp:  # solve for gmin (Cochard 2021); this introduces a problem if Tleaf is not an input field
+            gmin = p.gmin_20 * pow(Q10a, (Tleaf - 20) / 10)
+        else:
+            gmin = p.gmin_Tp * pow(Q10b, (Tleaf - p.Tp) / 10)
+
+        # solve for gs as max of previously calculated gs versus gmin
+        gs = np.maximum(gs, gmin)
+
         # calc. optimal An
         An, Aj, Ac = calc_photosynthesis(p, trans, Ci, photo=photo,
                                          Tleaf=Tleaf, inf_gb=inf_gb)
@@ -224,7 +237,7 @@ def profit_psi(p, photo='Farquhar', res='low', inf_gb=False, deriv=False):
         elif not np.isclose(trans, cst.zero, rtol=cst.zero, atol=cst.zero):
             trans *= conv.MILI  # mmol.m-2.s-1
 
-        return An, Ci, rublim, trans, gs, gb, Tleaf, Pleaf, k
+        return An, Ci, rublim, trans, gs, gb, gmin, Tleaf, Pleaf, k
 
     except ValueError:  # no opt
 
